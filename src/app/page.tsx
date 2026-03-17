@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
-type GameState = "explore" | "dialog" | "result";
+type GameState = "start" | "explore" | "dialog" | "result";
 type Direction = "up" | "right" | "down" | "left";
 type CareerPath = "university" | "vocational" | "employment";
 
@@ -607,7 +607,8 @@ const formatEffect = (effect: Partial<Status>) => {
 export default function Home() {
   const router = useRouter();
   const [hydrated, setHydrated] = useState(false);
-  const [gameState, setGameState] = useState<GameState>("explore");
+  const [gameState, setGameState] = useState<GameState>("start");
+  const [hasSaveData, setHasSaveData] = useState(false);
   const [year, setYear] = useState(1);
   const [yearPhase, setYearPhase] = useState(0);
   const [status, setStatus] = useState<Status>(INITIAL_STATUS);
@@ -758,6 +759,7 @@ export default function Home() {
       if (rebirthData) localStorage.removeItem(REBIRTH_KEY);
 
       const raw = localStorage.getItem(SAVE_KEY);
+      setHasSaveData(Boolean(raw));
       if (!raw) {
         if (rebirthData) {
           const restartedStatus = applyStatusDelta(INITIAL_STATUS, rebirthData.bonus);
@@ -766,6 +768,7 @@ export default function Home() {
           setReincarnationCount(rebirthData.reincarnationCount);
           setSystemMessage("転生完了。ボーナスを得て新しい7年間が始まる。");
         }
+        setGameState("start");
         setHydrated(true);
         return;
       }
@@ -780,7 +783,7 @@ export default function Home() {
       setDirection(parsed.direction ?? "down");
       setReincarnationCount(parsed.reincarnationCount ?? 0);
       setCarryBonus(parsed.carryBonus ?? {});
-      setGameState("explore");
+      setGameState("start");
       setCurrentEvent(null);
     } catch {
       setSystemMessage("セーブデータの読み込みに失敗したため、新規開始します。");
@@ -790,7 +793,7 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    if (!hydrated || gameState === "result") return;
+    if (!hydrated || gameState === "result" || gameState === "start") return;
 
     const payload: SaveData = {
       year,
@@ -818,6 +821,34 @@ export default function Home() {
     year,
     yearPhase,
   ]);
+
+  const startPlay = () => {
+    setGameState("explore");
+    setCurrentEvent(null);
+    setYearGateOpen(false);
+    setYearGateLabel(null);
+    setHeldDirection(null);
+    setSystemMessage("探索開始。NPCの隣で会話して物語を進めよう。");
+  };
+
+  const startFromBeginning = () => {
+    const restartedStatus = applyStatusDelta(INITIAL_STATUS, carryBonus);
+    setYear(1);
+    setYearPhase(0);
+    setStatus(restartedStatus);
+    setCareerPath(null);
+    setLogs([]);
+    setPlayerPos(START_POS);
+    setDirection("down");
+    setCurrentEvent(null);
+    setYearGateOpen(false);
+    setYearGateLabel(null);
+    setHeldDirection(null);
+    localStorage.removeItem(SAVE_KEY);
+    setHasSaveData(false);
+    setGameState("explore");
+    setSystemMessage("新しい物語を開始。NPCの隣で会話して進めよう。");
+  };
 
   // キー入力: 方向キーで移動、EnterでNPC会話
   useEffect(() => {
@@ -998,6 +1029,45 @@ export default function Home() {
     return (
       <main className="flex min-h-screen items-center justify-center bg-gradient-to-b from-sky-100 to-emerald-100 text-slate-800">
         <p className="text-sm text-slate-700">ロード中...</p>
+      </main>
+    );
+  }
+
+  if (gameState === "start") {
+    return (
+      <main
+        className="flex min-h-screen items-center justify-center bg-gradient-to-b from-amber-50 via-sky-50 to-emerald-100 px-4 py-6 text-slate-800"
+        style={{ fontFamily: "Yu Gothic UI, Segoe UI, sans-serif" }}
+      >
+        <div className="w-full max-w-2xl rounded-2xl border border-sky-200 bg-white/90 p-5 shadow-xl md:p-8">
+          <p className="text-xs text-indigo-700 md:text-sm">シミュレーション × ノベル × マップ移動</p>
+          <h1 className="mt-1 text-2xl font-bold text-slate-900 md:text-3xl">
+            7年間進路シミュレーション
+          </h1>
+          <p className="mt-3 text-sm text-slate-700 md:text-base">
+            高校1年から大学4年までの選択を重ね、進路と職業を決めよう。
+          </p>
+          <p className="mt-2 text-xs text-slate-600 md:text-sm">
+            操作: 矢印キーまたは画面ボタンで移動 / Enterまたは会話ボタンでイベント開始
+          </p>
+
+          <div className="mt-5 flex flex-col gap-2 md:flex-row">
+            <button
+              onClick={startPlay}
+              className="rounded-lg bg-cyan-400 px-4 py-2 text-sm font-semibold text-cyan-950 transition hover:bg-cyan-300 md:text-base"
+            >
+              {hasSaveData ? "つづきから始める" : "ゲームを始める"}
+            </button>
+            {hasSaveData && (
+              <button
+                onClick={startFromBeginning}
+                className="rounded-lg border border-sky-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-sky-50 md:text-base"
+              >
+                最初から始める
+              </button>
+            )}
+          </div>
+        </div>
       </main>
     );
   }
