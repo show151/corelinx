@@ -67,6 +67,9 @@ const MAP_HEIGHT = 15;
 const VIEW_WIDTH = 13;
 const VIEW_HEIGHT = 10;
 const TILE_SIZE = 32;
+const MOBILE_VIEW_WIDTH = 11;
+const MOBILE_VIEW_HEIGHT = 9;
+const MOBILE_TILE_SIZE = 26;
 const FRAME_SIZE = 32;
 const EVENTS_PER_YEAR = 4;
 const SAVE_KEY = "career-map-prototype-v1";
@@ -609,6 +612,7 @@ export default function Home() {
   const [hydrated, setHydrated] = useState(false);
   const [gameState, setGameState] = useState<GameState>("start");
   const [hasSaveData, setHasSaveData] = useState(false);
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
   const [year, setYear] = useState(1);
   const [yearPhase, setYearPhase] = useState(0);
   const [status, setStatus] = useState<Status>(INITIAL_STATUS);
@@ -637,6 +641,13 @@ export default function Home() {
     url: FALLBACK_SPRITE_SHEET,
   });
 
+  useEffect(() => {
+    const updateViewport = () => setIsMobileViewport(window.innerWidth < 768);
+    updateViewport();
+    window.addEventListener("resize", updateViewport);
+    return () => window.removeEventListener("resize", updateViewport);
+  }, []);
+
   const derivedCareerPath = useMemo(
     () => careerPath ?? decideCareerPath(status),
     [careerPath, status]
@@ -652,23 +663,26 @@ export default function Home() {
     () => buildYearGateChoices(yearGateLabel ?? year),
     [year, yearGateLabel]
   );
+  const activeViewWidth = isMobileViewport ? MOBILE_VIEW_WIDTH : VIEW_WIDTH;
+  const activeViewHeight = isMobileViewport ? MOBILE_VIEW_HEIGHT : VIEW_HEIGHT;
+  const activeTileSize = isMobileViewport ? MOBILE_TILE_SIZE : TILE_SIZE;
   const cameraX = useMemo(
     () =>
       clamp(
-        playerPos.x - Math.floor(VIEW_WIDTH / 2),
+        playerPos.x - Math.floor(activeViewWidth / 2),
         0,
-        Math.max(0, MAP_WIDTH - VIEW_WIDTH)
+        Math.max(0, MAP_WIDTH - activeViewWidth)
       ),
-    [playerPos.x]
+    [activeViewWidth, playerPos.x]
   );
   const cameraY = useMemo(
     () =>
       clamp(
-        playerPos.y - Math.floor(VIEW_HEIGHT / 2),
+        playerPos.y - Math.floor(activeViewHeight / 2),
         0,
-        Math.max(0, MAP_HEIGHT - VIEW_HEIGHT)
+        Math.max(0, MAP_HEIGHT - activeViewHeight)
       ),
-    [playerPos.y]
+    [activeViewHeight, playerPos.y]
   );
 
   const getSpriteStyle = (spriteUrl: string, spriteDirection: Direction, spriteFrame: number) => ({
@@ -1123,8 +1137,8 @@ export default function Home() {
           <div className="mb-2 flex items-center justify-between text-xs text-slate-600 md:text-sm">
             <p>マップ移動: 矢印キー or 画面ボタン / 会話開始: Enter or 会話ボタン</p>
             <p>
-              表示範囲: X {cameraX}〜{cameraX + VIEW_WIDTH - 1} / Y {cameraY}〜
-              {cameraY + VIEW_HEIGHT - 1}
+              表示範囲: X {cameraX}〜{cameraX + activeViewWidth - 1} / Y {cameraY}〜
+              {cameraY + activeViewHeight - 1}
             </p>
           </div>
 
@@ -1132,28 +1146,28 @@ export default function Home() {
             <div
               className="relative mx-auto overflow-hidden rounded-lg border border-sky-300 shadow-sm"
               style={{
-                width: `${VIEW_WIDTH * TILE_SIZE}px`,
-                height: `${VIEW_HEIGHT * TILE_SIZE}px`,
+                width: `${activeViewWidth * activeTileSize}px`,
+                height: `${activeViewHeight * activeTileSize}px`,
               }}
             >
               <div
                 className="absolute inset-0"
                 style={{
                   backgroundImage: `linear-gradient(rgba(255,255,255,0.22), rgba(255,255,255,0.28)), url(${SCHOOL_BACKGROUND_PATH})`,
-                  backgroundSize: `${MAP_WIDTH * TILE_SIZE}px ${MAP_HEIGHT * TILE_SIZE}px`,
-                  backgroundPosition: `-${cameraX * TILE_SIZE}px -${cameraY * TILE_SIZE}px`,
+                  backgroundSize: `${MAP_WIDTH * activeTileSize}px ${MAP_HEIGHT * activeTileSize}px`,
+                  backgroundPosition: `-${cameraX * activeTileSize}px -${cameraY * activeTileSize}px`,
                 }}
               />
 
               <div
                 className="relative z-10 grid"
                 style={{
-                  gridTemplateColumns: `repeat(${VIEW_WIDTH}, ${TILE_SIZE}px)`,
-                  gridTemplateRows: `repeat(${VIEW_HEIGHT}, ${TILE_SIZE}px)`,
+                  gridTemplateColumns: `repeat(${activeViewWidth}, ${activeTileSize}px)`,
+                  gridTemplateRows: `repeat(${activeViewHeight}, ${activeTileSize}px)`,
                 }}
               >
-                {Array.from({ length: VIEW_HEIGHT }).map((_, vy) =>
-                  Array.from({ length: VIEW_WIDTH }).map((__, vx) => {
+                {Array.from({ length: activeViewHeight }).map((_, vy) =>
+                  Array.from({ length: activeViewWidth }).map((__, vx) => {
                     const x = cameraX + vx;
                     const y = cameraY + vy;
                     const isPlayer = playerPos.x === x && playerPos.y === y;
@@ -1164,7 +1178,7 @@ export default function Home() {
                       <div
                         key={`${x}-${y}`}
                         className="relative"
-                        style={{ width: `${TILE_SIZE}px`, height: `${TILE_SIZE}px` }}
+                        style={{ width: `${activeTileSize}px`, height: `${activeTileSize}px` }}
                       >
                         {npcOnTile && (
                           <div
